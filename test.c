@@ -566,14 +566,11 @@ int fuzzy_hash_file(FILE *handle, /*@out@*/ char *result)
 
   printf ("fuzzyhashfile\n");
   fpos = ftello(handle);
-  printf ("%jd", fpos);
-  printf ("--\n");
-  if (fpos < 0) 
+  if (fpos < 0)
   {
     printf ("error1\n");
     return -1;
   }
-  printf ("--\n");
   if (fseeko(handle, 0, SEEK_END) < 0)
   {
     printf ("error2\n");
@@ -929,18 +926,53 @@ int fuzzy_compare(const char *str1, const char *str2)
   return (int)score;
 }
 
-int cmpntimes(int n)
+int cmptimes(int index)
 {
-    int i;
-    char filename[] = "";
-    char index[] = "";
-    FILE *fp;
+    int  j, compare;
+    char filename1[10000], filename2[10000];
+    char stindex[] = "";
+    FILE *fp1, *fp2;
+    char res1[10000];
+    char res2[10000];
 
-    for (i=0; i<n ; i++)
-    {
-        strcpy(filename, "../tests/plaintext/plaintext_");
-        printf ("%s\n", filename);
-    }
+
+
+    stindex[1] = '\0';
+    filename1[0] = '\0';
+    filename2[0] = '\0';
+    memset(res1, '\0', 10000);
+    memset(res2, '\0', 10000);
+    stindex[0] = index+48;
+    fp1 = NULL;
+    fp2 = NULL;
+
+    strcat(filename1, "../tests/plaintext/plaintext_");
+    strcat(filename1, stindex);
+
+    strcat(filename2, filename1);
+
+    strcat(filename1, "-1.txt");
+    strcat(filename2, "-2.txt");
+
+    printf ("%s\n", filename1);
+
+    fp1 = fopen(filename1, "r");
+    fuzzy_hash_file(fp1, res1);
+
+    printf ("%s\n", res1);
+    printf ("%d %d\n", index, j);
+    fp2 = fopen(filename2, "r");
+    fuzzy_hash_file(fp2, res2);
+    printf ("\n\nhash result1: %s\nhash result2: %s\n", res1, res2);
+    compare = fuzzy_compare(res1, res2);
+
+    printf ("compare=%d\n", compare);
+
+    fclose(fp2);
+    fclose(fp1);
+
+    return compare;
+
 }
 
 int main(void){
@@ -949,9 +981,9 @@ int main(void){
     char *str2;
     char *str3;
     char *str4;
-    int result;
+    int result, i;
     char res[] = "";
-
+/*
     FILE *fp;
 
     fp = fopen("input.txt", "r");
@@ -976,7 +1008,13 @@ int main(void){
     printf ("%d\n", result);
 
     result = fuzzy_compare(str2, str4);
-    printf ("%d\n", result);
+    printf ("%d\n", result);*/
+
+    for (i=0 ; i < 5 ; i++)
+    {
+        cmptimes(i);
+    }
+
     return 0;
 
 }
