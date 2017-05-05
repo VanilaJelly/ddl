@@ -929,6 +929,20 @@ int fuzzy_compare(const char *str1, const char *str2)
   return (int)score;
 }
 
+int cmpntimes(int n)
+{
+    int i;
+    char filename[] = "";
+    char index[] = "";
+    FILE *fp;
+
+    for (i=0; i<n ; i++)
+    {
+        strcpy(filename, "../tests/plaintext/plaintext_");
+        printf ("%s\n", filename);
+    }
+}
+
 int main(void){
 
     char *str1;
