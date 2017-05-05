@@ -16,6 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+  printf ("fuzzyhashfile\n");
  *
  * Earlier versions of this code were named fuzzy.c and can be found at:
  *     http://www.samba.org/ftp/unpacked/junkcode/spamsum/
@@ -368,7 +369,6 @@ int fuzzy_digest(const struct fuzzy_state *self,
   uint32_t h = roll_sum(&self->roll);
   int i, remain = FUZZY_MAX_RESULT - 1; /* Exclude terminating '\0'. */
   /* Verify that our elimination was not overeager. */
-  printf ("fuzzydigest\n");
   assert(bi == 0 || (uint_least64_t)SSDEEP_BS(bi) / 2 * SPAMSUM_LENGTH <
 	 self->total_size);
 
@@ -564,7 +564,6 @@ int fuzzy_hash_file(FILE *handle, /*@out@*/ char *result)
   int status = -1;
   struct fuzzy_state *ctx;
 
-  printf ("fuzzyhashfile\n");
   fpos = ftello(handle);
   if (fpos < 0)
   {
@@ -738,7 +737,6 @@ static uint32_t score_strings(const char *s1,
 
   if (len1 > SPAMSUM_LENGTH || len2 > SPAMSUM_LENGTH) {
     // not a real spamsum signature?
-    printf ("asdf, %s, %s\n", s1, s2);
     return 0;
   }
 
@@ -746,7 +744,6 @@ static uint32_t score_strings(const char *s1,
   // ROLLING_WINDOW to be candidates
 
   if (has_common_substring(s1, s2) == 0) {
-    printf ("aasdf, %s, %s\n", s1, s2);
     return 0;
   }
 
@@ -754,7 +751,6 @@ static uint32_t score_strings(const char *s1,
   // us a pretty good idea of how closely related the two strings are
   score = edit_distn(s1, len1, s2, len2);
 
-  printf ("initial score: %d\n", score);
 
   // scale the edit distance by the lengths of the two
   // strings. This changes the score to be a measure of the
@@ -783,7 +779,6 @@ static uint32_t score_strings(const char *s1,
   {
     score = block_size/MIN_BLOCKSIZE * MIN(len1, len2);
   }
-  printf ("final score: %d\n", score);
   return score;
 }
 
@@ -930,19 +925,25 @@ int cmptimes(int index)
 {
     int  j, compare;
     char filename1[10000], filename2[10000];
-    char stindex[] = "";
+    char stindex[5] = "";
     FILE *fp1, *fp2;
     char res1[10000];
     char res2[10000];
 
 
-
-    stindex[1] = '\0';
     filename1[0] = '\0';
     filename2[0] = '\0';
+    stindex[5]='0';
     memset(res1, '\0', 10000);
     memset(res2, '\0', 10000);
-    stindex[0] = index+48;
+    if (index<10)
+    {
+        stindex[0] = index+48;
+    }
+    else
+    {
+        sprintf(stindex, "%d", index);
+    }
     fp1 = NULL;
     fp2 = NULL;
 
@@ -954,16 +955,12 @@ int cmptimes(int index)
     strcat(filename1, "-1.txt");
     strcat(filename2, "-2.txt");
 
-    printf ("%s\n", filename1);
 
     fp1 = fopen(filename1, "r");
     fuzzy_hash_file(fp1, res1);
 
-    printf ("%s\n", res1);
-    printf ("%d %d\n", index, j);
     fp2 = fopen(filename2, "r");
     fuzzy_hash_file(fp2, res2);
-    printf ("\n\nhash result1: %s\nhash result2: %s\n", res1, res2);
     compare = fuzzy_compare(res1, res2);
 
     printf ("compare=%d\n", compare);
@@ -981,7 +978,7 @@ int main(void){
     char *str2;
     char *str3;
     char *str4;
-    int result, i;
+    int result, i, sum, count, loop;
     char res[] = "";
 /*
     FILE *fp;
@@ -1010,10 +1007,20 @@ int main(void){
     result = fuzzy_compare(str2, str4);
     printf ("%d\n", result);*/
 
-    for (i=0 ; i < 5 ; i++)
+    sum = 0;
+    count = 0;
+    loop = 1000;
+    for (i=0 ; i < loop ; i++)
     {
-        cmptimes(i);
+        result = cmptimes(i);
+        sum = sum + result;
+        if (result > 0)
+        {
+            count++;
+        }
     }
+
+    printf ("\n\n\n\ncount: %d sum: %d, avgc: %lf, avgsum: %lf\n", count, sum, count/(float)loop, sum/(float)loop);
 
     return 0;
 
