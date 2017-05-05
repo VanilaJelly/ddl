@@ -44,7 +44,7 @@
 #define unlikely(x) x
 #endif
 
-#define ROLLING_WINDOW 3
+#define ROLLING_WINDOW 7
 #define MIN_BLOCKSIZE 3
 #define HASH_PRIME 0x01000193
 #define HASH_INIT 0x28021967
@@ -624,7 +624,42 @@ int fuzzy_hash_filename(const char *filename, /*@out@*/ char *result)
   return status;
 }
 
-//
+#define ROLLING_WINDOW1 7
+
+struct roll_state1 {
+  unsigned char window[ROLLING_WINDOW1];
+  uint32_t h1, h2, h3;
+  uint32_t n;
+};
+
+static void roll_hash1(struct roll_state1 *self, unsigned char c)
+{
+  self->h2 -= self->h1;
+  self->h2 += ROLLING_WINDOW1 * (uint32_t)c;
+
+  self->h1 += (uint32_t)c;
+  self->h1 -= (uint32_t)self->window[self->n];
+
+  self->window[self->n] = c;
+  self->n++;
+  if (self->n == ROLLING_WINDOW1)
+    self->n = 0;
+
+  /* The original spamsum AND'ed this value with 0xFFFFFFFF which
+   * in theory should have no effect. This AND has been removed
+   * for performance (jk) */
+  self->h3 <<= 5;
+  self->h3 ^= c;
+}
+
+static uint32_t roll_sum1(const struct roll_state1 *self)
+{
+  return self->h1 + self->h2 + self->h3;
+}
+static void roll_init1(/*@out@*/ struct roll_state1 *self) {
+	memset(self, 0, sizeof(struct roll_state1));
+}
+
 // We only accept a match if we have at least one common substring in
 // the signature of length ROLLING_WINDOW. This dramatically drops the
 // false positive rate for lowcore thresholds while having
@@ -646,17 +681,17 @@ static int has_common_substring(const char *s1, const char *s2)
 
   // first compute the windowed rolling hash at each offset in
   // the first string
-  struct roll_state state;
-  roll_init (&state);
+  struct roll_state1 state;
+  roll_init1 (&state);
 
   for (i=0;s1[i];i++)
   {
-    roll_hash(&state, (unsigned char)s1[i]);
-    hashes[i] = roll_sum(&state);
+    roll_hash1(&state, (unsigned char)s1[i]);
+    hashes[i] = roll_sum1(&state);
   }
   num_hashes = i;
 
-  roll_init(&state);
+  roll_init1(&state);
 
   // now for each offset in the second string compute the
   // rolling hash and compare it to all of the rolling hashes
@@ -665,18 +700,18 @@ static int has_common_substring(const char *s1, const char *s2)
   // a direct string comparison */
   for (i=0;s2[i];i++)
   {
-    roll_hash(&state, (unsigned char)s2[i]);
-    uint32_t h = roll_sum(&state);
-    if (i < ROLLING_WINDOW-1) continue;
-    for (j=ROLLING_WINDOW-1;j<num_hashes;j++)
+    roll_hash1(&state, (unsigned char)s2[i]);
+    uint32_t h = roll_sum1(&state);
+    if (i < ROLLING_WINDOW1-1) continue;
+    for (j=ROLLING_WINDOW1-1;j<num_hashes;j++)
     {
       if (hashes[j] == h)
       {
 	// we have a potential match - confirm it
-	if (strlen(s2+i-(ROLLING_WINDOW-1)) >= ROLLING_WINDOW &&
-	    strncmp(s2+i-(ROLLING_WINDOW-1),
-		    s1+j-(ROLLING_WINDOW-1),
-		    ROLLING_WINDOW) == 0)
+	if (strlen(s2+i-(ROLLING_WINDOW1-1)) >= ROLLING_WINDOW1 &&
+	    strncmp(s2+i-(ROLLING_WINDOW1-1),
+		    s1+j-(ROLLING_WINDOW1-1),
+		    ROLLING_WINDOW1) == 0)
 	{
 	  return 1;
 	}
@@ -1009,7 +1044,7 @@ int main(void){
 
     sum = 0;
     count = 0;
-    loop = 1000;
+    loop = 10000;
     for (i=0 ; i < loop ; i++)
     {
         result = cmptimes(i);
@@ -1020,7 +1055,7 @@ int main(void){
         }
     }
 
-    printf ("\n\n\n\ncount: %d sum: %d, avgc: %lf, avgsum: %lf\n", count, sum, count/(float)loop, sum/(float)loop);
+    printf ("\n\n\n\ncount: %d sum: %d, avgc: %lf, avgsum: %lf, avg>0: %lf\n", count, sum, count/(float)loop, sum/(float)loop, sum/(float)count);
 
     return 0;
 
