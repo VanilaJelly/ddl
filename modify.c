@@ -24,6 +24,7 @@
  */
 
 #include "main.h"
+
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
@@ -31,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "fuzzy.h"
 #include "edit_dist.h"
@@ -56,27 +58,94 @@
 
 //#define MIN(x,y) ((x)<(y)?(x):(y))
 
-int edit_distn(const char *s1, size_t s1len, const char *s2, size_t s2len) {
-  int t[2][EDIT_DISTN_MAXLEN+1];
-  int *t1 = t[0];
-  int *t2 = t[1];
-  int *t3;
-  size_t i1, i2;
-  for (i2 = 0; i2 <= s2len; i2++)
-    t[0][i2] = i2 * EDIT_DISTN_REMOVE_COST;
-  for (i1 = 0; i1 < s1len; i1++) {
-    t2[0] = (i1 + 1) * EDIT_DISTN_INSERT_COST;
-    for (i2 = 0; i2 < s2len; i2++) {
-      int cost_a = t1[i2+1] + EDIT_DISTN_INSERT_COST;
-      int cost_d = t2[i2] + EDIT_DISTN_REMOVE_COST;
-      int cost_r = t1[i2] + (s1[i1] == s2[i2] ? 0 : EDIT_DISTN_REPLACE_COST);
-      t2[i2+1] = MIN(MIN(cost_a, cost_d), cost_r);
+int area_distx(char* a)
+{
+    int i = 0;
+    int bottom[10] = {0};
+    int x, y, x1, y1, area, k, j;
+
+    area = 0;
+
+    for (i=0 ; i < 15 ; i++)
+    {
+        x = a[2*i] - 48;
+        y = a[2*i + 1] - 48;
+
+        x1 = a[2*i + 2] - 48;
+        y1 = a[2*i + 3] - 48;
+
+        k = x - x1;
+        j = y - y1;
+
+        if (bottom[MIN(x1, x)] >= MIN(y1, y))
+        {
+            continue;
+        }
+        if (k*j != 0)
+        {
+            area = area + MIN(y1, y) - bottom[MIN(x1, x)] + 0.5;
+            bottom[MIN(x1, x)] = bottom[MIN(x1, 1)] + MIN(y1, y) + 0.5;
+        }
+        if (j == 0 && k != 0)
+        {
+            area = area + y - bottom[MIN(x1, x)];
+            bottom[MIN(x1, x)] += y;
+        }
     }
-    t3 = t1;
-    t1 = t2;
-    t2 = t3;
-  }
-  return t1[s2len];
+
+    return area;
+}
+
+int area_disty(char* a)
+{
+    int i = 0;
+    int bottom[10] = {0};
+    int x, y, x1, y1, area, k, j;
+
+    area = 0;
+
+    for (i=0 ; i < 15 ; i++)
+    {
+        x = a[2*i] - 48;
+        y = a[2*i + 1] - 48;
+
+        x1 = a[2*i + 2] - 48;
+        y1 = a[2*i + 3] - 48;
+
+        k = x - x1;
+        j = y - y1;
+
+        if (bottom[MIN(y1, y)] >= MIN(x1, x))
+        {
+            continue;
+        }
+        if (k*j != 0)
+        {
+            area = area + MIN(x1, x) - bottom[MIN(y1, y)] + 0.5;
+            bottom[MIN(y1, y)] = bottom[MIN(y1, 1)] + MIN(x1, x) + 0.5;
+        }
+        if (j != 0 && k == 0)
+        {
+            area = area + y - bottom[MIN(y1, y)];
+            bottom[MIN(x1, x)] += y;
+        }
+    }
+
+    return area;
+}
+
+int area_dist(int a1, int a2, int b1, int b2)
+{
+    int result;
+    int a, b;
+
+    a = a1 - a2;
+    b = b1 - b2;
+
+    a = a * a;
+    b = b * b;
+
+    result = sqrt(a+b);
 }
 
 
@@ -623,8 +692,8 @@ int fuzzy_hash_filename(const char *filename, /*@out@*/ char *result)
   return status;
 }
 
-//aaaa
-#define ROLLING_WINDOW1 5
+//tttt
+#define ROLLING_WINDOW1 4
 
 struct roll_state1 {
   unsigned char window[ROLLING_WINDOW1];
@@ -772,6 +841,7 @@ static uint32_t score_strings(const char *s1,
 
   if (len1 > SPAMSUM_LENGTH || len2 > SPAMSUM_LENGTH) {
     // not a real spamsum signature?
+    printf ("asdf");
     return 0;
   }
 
@@ -779,7 +849,11 @@ static uint32_t score_strings(const char *s1,
   // ROLLING_WINDOW to be candidates
 
   if (has_common_substring(s1, s2) == 0) {
+    printf ("dsddd");
     return 0;
+  }
+  else{
+      return 1;
   }
 
   // compute the edit distance between the two strings. The edit distance gives
@@ -845,7 +919,7 @@ int fuzzy_compare(const char *str1, const char *str2)
       (block_size1 > ULONG_MAX / 2 || block_size1*2 != block_size2) &&
       (block_size1 % 2 == 1 || block_size1 / 2 != block_size2)) {
       printf ("different block size");
-    return 0;
+    return 100;
   }
 
   // move past the prefix
@@ -866,14 +940,14 @@ int fuzzy_compare(const char *str1, const char *str2)
   if (!s1)
   {
     printf ("1null");
-    return 0;
+    return 100;
   }
   s2 = eliminate_sequences(str2+1);
   if (!s2)
   {
     printf ("2null");
     free(s1);
-    return 0;
+    return 100;
   }
 
   // now break them into the two pieces
@@ -901,6 +975,56 @@ int fuzzy_compare(const char *str1, const char *str2)
   // about the filename
   s1_3 = strchr(s1_2, ',');
   s2_3 = strchr(s2_2, ',');
+
+  s1_3++;
+  s2_3++;
+
+  char *s1_4, *s2_4;
+  s1_4 = strchr(s1_3, ',');
+  s2_4 = strchr(s2_3, ',');
+
+  s1_4++;
+  s2_4++;
+
+
+  int a, b, c, d;
+
+  if (s1_3[1] == '\0')
+  {
+      a = s1_3[1] - 48;
+  }
+  else
+  {
+  a = (s1_3[0]-48) * 10 + s1_3[1] - 48;
+  }
+
+  if (s1_3[1] == '\0')
+  {
+      b = s2_3[1] - 48;
+  }
+  else
+  {
+      b = (s2_3[0]-48) * 10 + s2_3[1] - 48;
+  }
+  if (s1_4[1] == '\0')
+  {
+      c = s1_4[1] - 48;
+  }
+  else
+  {
+      c = (s1_4[0]-48) * 10 + s1_4[1] - 48;
+  }
+  if (s2_4[1] == '\0')
+  {
+      d = s2_4[1] - 48;
+  }
+  else
+  {
+      d = (s1_4[0]-48) * 10 + s2_4[1] - 48;
+  }
+
+  score = area_dist(a,b,c,d);
+
   if (s1_3 != NULL)
     *s1_3 = 0;
   if (s2_3 != NULL)
@@ -920,6 +1044,7 @@ int fuzzy_compare(const char *str1, const char *str2)
   s1_2[-1] = 0;
   s2_2[-1] = 0;
 
+  int k;
   // each signature has a string for two block sizes. We now
   // choose how to combine the two block sizes. We checked above
   // that they have at least one block size in common
@@ -928,26 +1053,36 @@ int fuzzy_compare(const char *str1, const char *str2)
       uint32_t score1, score2;
       score1 = score_strings(s1_1, s2_1, block_size1);
       score2 = score_strings(s1_2, s2_2, block_size1*2);
-      score = MAX(score1, score2);
+      k = MAX(score1, score2);
     }
     else if (block_size1 * 2 == block_size2) {
-      score = score_strings(s1_2, s2_1, block_size2);
+      k = score_strings(s1_2, s2_1, block_size2);
     }
     else {
-      score = score_strings(s1_1, s2_2, block_size1);
+      k = score_strings(s1_1, s2_2, block_size1);
     }
   }
   else {
     if (block_size1 == block_size2) {
-      score = score_strings(s1_1, s2_1, block_size1);
+      k = score_strings(s1_1, s2_1, block_size1);
     }
     else if (block_size1 % 2 == 0 && block_size1 / 2 == block_size2) {
-      score = score_strings(s1_1, s2_2, block_size1);
+      k = score_strings(s1_1, s2_2, block_size1);
     }
     else {
       printf("blocksizediff");
-      score = 0;
+      score = 100;
     }
+  }
+
+  if (k != 0)
+  {
+      return score;
+  }
+  else
+  {
+      printf ("k-0\n");
+      return 100;
   }
 
   free(s1);
@@ -960,10 +1095,12 @@ int cmptimes(int index)
 {
     int  j, compare;
     char filename1[10000], filename2[10000];
+    char str1[10000], str2[10000];
     char stindex[5] = "";
     FILE *fp1, *fp2;
     char res1[10000];
     char res2[10000];
+    int add1, add2;
 
 
     filename1[0] = '\0';
@@ -971,6 +1108,8 @@ int cmptimes(int index)
     stindex[5]='0';
     memset(res1, '\0', 10000);
     memset(res2, '\0', 10000);
+    fp1 = NULL;
+    fp2 = NULL;
     if (index<10)
     {
         stindex[0] = index+48;
@@ -979,8 +1118,6 @@ int cmptimes(int index)
     {
         sprintf(stindex, "%d", index);
     }
-    fp1 = NULL;
-    fp2 = NULL;
 
     strcat(filename1, "../tests/plaintext/farplaintext_");
     strcat(filename1, stindex);
@@ -990,12 +1127,37 @@ int cmptimes(int index)
     strcat(filename1, "-1.txt");
     strcat(filename2, "-2.txt");
 
-
     fp1 = fopen(filename1, "r");
     fuzzy_hash_file(fp1, res1);
 
+    fgets(str1, 1000, fp1);
+    add1 = area_distx(str1);
+    add2 = area_disty(str1);
+    printf ("str1: %s, add: %d, add2: %d\n", str1, add1, add2);
+    sprintf(stindex, "%d", add1);
+    strcat(res1, ",");
+    strcat(res1, stindex);
+    strcat(res1, ",");
+    sprintf(stindex, "%d", add2);
+    strcat(res1, stindex);
+    printf("%s\n", res1);
+
+
     fp2 = fopen(filename2, "r");
     fuzzy_hash_file(fp2, res2);
+
+    fgets(str2, 1000, fp2);
+    add1 = area_distx(str2);
+    add2 = area_disty(str2);
+    printf ("str2: %s\n", str2);
+    sprintf(stindex, "%d", add1);
+    strcat(res2, ",");
+    strcat(res2, stindex);
+    strcat(res2, ",");
+    sprintf(stindex, "%d", add2);
+    strcat(res2, stindex);
+    printf("%s\n", res2);
+
     compare = fuzzy_compare(res1, res2);
 
     printf ("compare=%d\n", compare);
@@ -1023,13 +1185,16 @@ int main(void){
     {
         result = cmptimes(i);
         sum = sum + result;
-        if (result > 10)
+        if (result < 5)
         {
             count++;
         }
     }
 
-    printf ("\n\n\n\ncount: %d sum: %d, avgc: %lf, avgsum: %lf, avg>0: %lf\n", count, sum, count/(float)loop, sum/(float)loop, sum/(float)count);
+ //   str1 = "6757475645343322323130";
+ //   printf ("%d\n", area_distx(str1));
+
+   printf ("\n\n\n\ncount: %d sum: %d, avgc: %lf, avgsum: %lf, avg>0: %lf\n", count, sum, count/(float)loop, sum/(float)loop, sum/(float)count);
 
     return 0;
 
